@@ -1,25 +1,32 @@
 package network
 
 import (
-	"net/http"
-	"github.com/bigpicturelabs/consensusPBFT/pbft/consensus"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"bytes"
+	"net/http"
+
+	"github.com/bigpicturelabs/consensusPBFT/pbft/consensus"
 )
 
 type Server struct {
-	url string
+	url  string
 	node *Node
 }
 
 func NewServer(nodeID string) *Server {
+	// A new node is created according to the passed NodeID. The default view of the node is 1000000, and the node strats three processes:
+	// 1. dispatchMsg, 2. alarmToDispatcher and resolveMsg
 	node := NewNode(nodeID)
+	// Start service
 	server := &Server{node.NodeTable[nodeID], node}
 
 	server.setRoute()
 
 	return server
+	//1. Create a node according to the passed nodeID
+	//2. Create a server service
+	//3. Set route
 }
 
 func (server *Server) Start() {
@@ -95,5 +102,5 @@ func (server *Server) getReply(writer http.ResponseWriter, request *http.Request
 
 func send(url string, msg []byte) {
 	buff := bytes.NewBuffer(msg)
-	http.Post("http://" + url, "application/json", buff)
+	http.Post("http://"+url, "application/json", buff)
 }

@@ -1,13 +1,16 @@
 package network
 
 import (
-	"github.com/bigpicturelabs/consensusPBFT/pbft/consensus"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
-	"errors"
+
+	"github.com/bigpicturelabs/consensusPBFT/pbft/consensus"
 )
 
+// The NewNode here actuallly creates a new node and defines some attribute information in the node structure.
+// The node structure is as follows:
 type Node struct {
 	NodeID        string
 	NodeTable     map[string]string // key=nodeID, value=url
@@ -34,6 +37,11 @@ type View struct {
 
 const ResolvingTimeDuration = time.Millisecond * 1000 // 1 second.
 
+// Analyzing NewNode
+// Initializing view member const viewid = 10000000
+// Defines some attribute information in the node structure
+
+// NewNode(node ID)
 func NewNode(nodeID string) *Node {
 	const viewID = 10000000000 // temporary.
 
@@ -41,19 +49,19 @@ func NewNode(nodeID string) *Node {
 		// Hard-coded for test.
 		NodeID: nodeID,
 		NodeTable: map[string]string{
-			"Apple": "localhost:1111",
-			"MS": "localhost:1112",
+			"Apple":  "localhost:1111",
+			"MS":     "localhost:1112",
 			"Google": "localhost:1113",
-			"IBM": "localhost:1114",
+			"IBM":    "localhost:1114",
 		},
 		View: &View{
-			ID: viewID,
-			Primary: "Apple",
+			ID:      viewID,
+			Primary: "Apple", // The primary node is Apple
 		},
 
 		// Consensus-related struct
-		CurrentState: nil,
-		CommittedMsgs: make([]*consensus.RequestMsg, 0),
+		CurrentState:  nil,
+		CommittedMsgs: make([]*consensus.RequestMsg, 0), // Submitted information
 		MsgBuffer: &MsgBuffer{
 			ReqMsgs:        make([]*consensus.RequestMsg, 0),
 			PrePrepareMsgs: make([]*consensus.PrePrepareMsg, 0),
@@ -62,9 +70,9 @@ func NewNode(nodeID string) *Node {
 		},
 
 		// Channels
-		MsgEntrance: make(chan interface{}),
-		MsgDelivery: make(chan interface{}),
-		Alarm: make(chan bool),
+		MsgEntrance: make(chan interface{}), // Unbuffered information receiving channel
+		MsgDelivery: make(chan interface{}), // Unbuffered message transmission channel
+		Alarm:       make(chan bool),
 	}
 
 	// Start message dispatcher
@@ -76,7 +84,7 @@ func NewNode(nodeID string) *Node {
 	// Start message resolver
 	go node.resolveMsg()
 
- 	return node
+	return node
 }
 
 func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
@@ -93,7 +101,7 @@ func (node *Node) Broadcast(msg interface{}, path string) map[string]error {
 			continue
 		}
 
-		send(url + path, jsonMsg)
+		send(url+path, jsonMsg)
 	}
 
 	if len(errorMap) == 0 {
@@ -116,7 +124,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 	}
 
 	// Client가 없으므로, 일단 Primary에게 보내는 걸로 처리.
-	send(node.NodeTable[node.View.Primary] + "/reply", jsonMsg)
+	send(node.NodeTable[node.View.Primary]+"/reply", jsonMsg)
 
 	return nil
 }
@@ -239,7 +247,7 @@ func (node *Node) createStateForNewConsensus() error {
 	if len(node.CommittedMsgs) == 0 {
 		lastSequenceID = -1
 	} else {
-		lastSequenceID = node.CommittedMsgs[len(node.CommittedMsgs) - 1].SequenceID
+		lastSequenceID = node.CommittedMsgs[len(node.CommittedMsgs)-1].SequenceID
 	}
 
 	// Create a new state for this new consensus process in the Primary
@@ -250,10 +258,19 @@ func (node *Node) createStateForNewConsensus() error {
 	return nil
 }
 
+// Each node has three goroutines open
+// 1. dispatchMsg
+// 2. alarmToDispatcher
+// 3. resolveMsg
+
+// Lets focus on two cooperative processes goroutine
+
+// collaboration 1: dispatchMsg
+
 func (node *Node) dispatchMsg() {
 	for {
 		select {
-		case msg := <-node.MsgEntrance:
+		case msg := <-node.MsgEntrance: // If a message is sent from the MsgEntrance channel, get msg
 			err := node.routeMsg(msg)
 			if err != nil {
 				fmt.Println(err)
@@ -269,6 +286,10 @@ func (node *Node) dispatchMsg() {
 	}
 }
 
+// Here we need to know something about for selecting multiplexing
+
+// We can see from the code of dispatchMsg that as long as there is a value in the MsgEnrance channel, it will be passed to an intermediate variable
+// message and then the message will be routed and forwarded to routeMsg.
 func (node *Node) routeMsg(msg interface{}) []error {
 	switch msg.(type) {
 	case *consensus.RequestMsg:
@@ -387,12 +408,14 @@ func (node *Node) routeMsgWhenAlarmed() []error {
 	return nil
 }
 
+// Collaboration 2: resolveMsg
 func (node *Node) resolveMsg() {
 	for {
 		// Get buffered messages from the dispatcher.
 		msgs := <-node.MsgDelivery
 		switch msgs.(type) {
 		case []*consensus.RequestMsg:
+			// Node voting decision information
 			errs := node.resolveRequestMsg(msgs.([]*consensus.RequestMsg))
 			if len(errs) != 0 {
 				for _, err := range errs {
