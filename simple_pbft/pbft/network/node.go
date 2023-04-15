@@ -49,7 +49,7 @@ func NewNode(nodeID string) *Node {
 		// Hard-coded for test.
 		NodeID: nodeID,
 		NodeTable: map[string]string{
-			"Apple":  "localhost:1111",
+			"Apple":  "localhost:1119",
 			"MS":     "localhost:1112",
 			"Google": "localhost:1113",
 			"IBM":    "localhost:1114",
@@ -123,7 +123,7 @@ func (node *Node) Reply(msg *consensus.ReplyMsg) error {
 		return err
 	}
 
-	// Client가 없으므로, 일단 Primary에게 보내는 걸로 처리.
+	// Since we dont have a client, let's just send it to the primary.
 	send(node.NodeTable[node.View.Primary]+"/reply", jsonMsg)
 
 	return nil
@@ -233,7 +233,9 @@ func (node *Node) GetCommit(commitMsg *consensus.VoteMsg) error {
 }
 
 func (node *Node) GetReply(msg *consensus.ReplyMsg) {
+
 	fmt.Printf("Result: %s by %s\n", msg.Result, msg.NodeID)
+
 }
 
 func (node *Node) createStateForNewConsensus() error {

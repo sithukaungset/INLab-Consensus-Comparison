@@ -219,3 +219,5 @@ func digest(object interface{}) (string, error) {
 
 	return Hash(msg), nil
 }
+
+ 
